@@ -1,6 +1,7 @@
 package server
 
 import (
+	".."
 	"encoding/json"
 	"log"
 	"net"
@@ -8,23 +9,6 @@ import (
 	"os/signal"
 	"syscall"
 )
-
-const (
-	ControlErrOk        int64 = iota // Everything ok
-	ControlErrUnknown                // error that we don't know
-	ControlErrMalformed              // Maklformed request
-	ControlErrSize                   // To large
-)
-
-type ControlRequest struct {
-	Verb string
-	Data []byte
-}
-
-type ControlResponse struct {
-	Error   int64
-	Message string
-}
 
 type controlServer struct {
 	listen *net.UnixListener
@@ -42,7 +26,7 @@ func newControlServer(addr *net.UnixAddr) (*controlServer, error) {
 }
 
 func (c *controlServer) sendResponse(conn net.Conn, errCode int64, message string) error {
-	resp := &ControlResponse{Error: errCode, Message: message}
+	resp := &fluxtftp.ControlResponse{Error: errCode, Message: message}
 	wireResp, err := json.Marshal(resp)
 	if err != nil {
 		panic("Could nor marshal response")
@@ -58,22 +42,22 @@ func (c *controlServer) sendResponse(conn net.Conn, errCode int64, message strin
 func (c *controlServer) handleControl(conn net.Conn) {
 	defer conn.Close()
 	decoder := json.NewDecoder(conn)
-	req := &ControlRequest{}
+	req := &fluxtftp.ControlRequest{}
 	err := decoder.Decode(req)
 	if err != nil || req.Verb == "" || len(req.Data) == 0 {
 		if err != nil {
 			log.Println("Control: Received:", req)
 		}
-		c.sendResponse(conn, ControlErrMalformed, "Something went wrong")
+		c.sendResponse(conn, fluxtftp.ControlErrMalformed, "Something went wrong")
 		return
 	}
 
 	err = c.flux.PutDefault(req.Data)
 	if err != nil {
-		c.sendResponse(conn, ControlErrUnknown, err.Error())
+		c.sendResponse(conn, fluxtftp.ControlErrUnknown, err.Error())
 		return
 	}
-	err = c.sendResponse(conn, ControlErrOk, "")
+	err = c.sendResponse(conn, fluxtftp.ControlErrOk, "")
 	if err != nil {
 		return
 	}

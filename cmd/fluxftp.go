@@ -20,7 +20,15 @@ const (
 var ControlAddr string
 
 func init() {
-	flag.BoolVar(&daemon, "daemon", false, "Start in Daemon mode")
+	flag.Usage = usage
+	const (
+		daemonUsage = "Start in Daemon mode"
+	)
+	flag.BoolVar(&daemon, "daemon", false, daemonUsage)
+	flag.BoolVar(&daemon, "d", false, daemonUsage+"(shorthand)")
+}
+
+func serverInit() {
 	uid := os.Getuid()
 	if uid == 0 {
 		ControlAddr = "/var/run/fluxtftp/control"
@@ -39,10 +47,17 @@ func init() {
 	}
 }
 
+func usage() {
+	fmt.Fprintf(os.Stderr, "Usage of %s [filename]:\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, " filename: name of the file to be served\n")
+	flag.PrintDefaults()
+}
+
 func main() {
 	flag.Parse()
 	if daemon {
 		fmt.Println("Starting fluxtftp daemon")
+		serverInit()
 		fluxftpd, _ := server.NewFluxServer(
 			&server.Config{
 				SearchPath:  SEARCHPATH,
@@ -63,6 +78,19 @@ func main() {
 		return
 	}
 
-	fmt.Println("fluxtftp")
-	client.Start()
+	if flag.NArg() != 1 {
+		flag.Usage()
+		os.Exit(1)
+	}
+	file, err := os.Open(flag.Arg(0))
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	defer file.Close()
+	err = client.Add(file)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
