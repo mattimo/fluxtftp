@@ -5,12 +5,38 @@ import (
 	"../server"
 	"flag"
 	"fmt"
+	"os"
+	"path/filepath"
 )
 
 var daemon bool
 
+const (
+	SEARCHPATH  string = "/home/iniuser/.fluxftpd"
+	TFTPDADDR   string = ":6969"
+	CONTROLSOCK string = "/run/user/%d/fluxtftp/control"
+)
+
+var ControlAddr string
+
 func init() {
 	flag.BoolVar(&daemon, "daemon", false, "Start in Daemon mode")
+	uid := os.Getuid()
+	if uid == 0 {
+		ControlAddr = "/var/run/fluxtftp/control"
+		err := os.MkdirAll(filepath.Dir(ControlAddr), 0760)
+		fmt.Println("Created control dir:", filepath.Dir(ControlAddr))
+		if err != nil {
+			panic("Could not create control sock " + filepath.Dir(ControlAddr))
+		}
+	} else {
+		ControlAddr = fmt.Sprintf(CONTROLSOCK, uid)
+		err := os.MkdirAll(filepath.Dir(ControlAddr), 0700)
+		fmt.Println("Created control dir:", filepath.Dir(ControlAddr))
+		if err != nil {
+			panic("Could not create control sock " + filepath.Dir(ControlAddr))
+		}
+	}
 }
 
 func main() {
@@ -19,9 +45,9 @@ func main() {
 		fmt.Println("Starting fluxtftp daemon")
 		fluxftpd, _ := server.NewFluxServer(
 			&server.Config{
-				SearchPath:  "/home/iniuser/.fluxftpd",
-				TftpAddress: ":6969",
-				ControlAddr: "/run/user/1000/fluxtftpd.sock",
+				SearchPath:  SEARCHPATH,
+				TftpAddress: TFTPDADDR,
+				ControlAddr: ControlAddr,
 			})
 		go func() {
 			err := fluxftpd.StartControl()

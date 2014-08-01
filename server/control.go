@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 const (
@@ -89,6 +92,17 @@ func (c *controlServer) acceptControl() (net.Conn, error) {
 	return conn, nil
 }
 
+func closeSocket(l *net.UnixListener) {
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, os.Interrupt, os.Kill, syscall.SIGTERM)
+	go func(c chan os.Signal) {
+		sig := <-c
+		log.Printf("Caught signal %s: shutting down.", sig)
+		l.Close()
+		os.Exit(0)
+	}(sigc)
+}
+
 func (flux *FluxServer) StartControl() error {
 
 	addr, err := net.ResolveUnixAddr("unix", flux.Conf.ControlAddr)
@@ -100,6 +114,7 @@ func (flux *FluxServer) StartControl() error {
 	if err != nil {
 		return err
 	}
+	closeSocket(server.listen)
 	server.flux = flux
 
 	for {
