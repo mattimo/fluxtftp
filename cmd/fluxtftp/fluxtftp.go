@@ -1,8 +1,8 @@
 package main
 
 import (
-	"../client"
-	"../server"
+	"../../client"
+	"../../server"
 	"flag"
 	"fmt"
 	"os"
