@@ -1,7 +1,7 @@
 package client
 
 import (
-	".."
+	"github.com/mattimo/fluxtftp"
 	"bytes"
 	"encoding/json"
 	"fmt"

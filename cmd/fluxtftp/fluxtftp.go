@@ -1,8 +1,8 @@
 package main
 
 import (
-	"../../client"
-	"../../server"
+	"github.com/mattimo/fluxtftp/client"
+	"github.com/mattimo/fluxtftp/server"
 	"flag"
 	"fmt"
 	"os"

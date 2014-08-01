@@ -1,7 +1,7 @@
 package server
 
 import (
-	".."
+	"github.com/mattimo/fluxtftp"
 	"encoding/json"
 	"log"
 	"net"

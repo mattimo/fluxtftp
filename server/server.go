@@ -1,7 +1,7 @@
 package server
 
 import (
-	"../tftp"
+	"github.com/mattimo/fluxtftp/tftp"
 	"bytes"
 	"io"
 	"log"
