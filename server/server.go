@@ -119,36 +119,32 @@ func (flux *FluxServer) handleRequest(res *tftp.RRQresponse) {
 
 	for {
 		bytesRead, err := reader.Read(b)
-		totalBytes += bytesRead
+		totalBytes = totalBytes + bytesRead
 
 		if err == io.EOF {
-			_, err := res.Write(b[:bytesRead])
+			_, err = res.Write(b[:bytesRead])
 			if err != nil {
 				log.Println("Failed to write last bytes of the reader:", err)
+				break
 			}
 			res.End()
 			break
 		} else if err != nil {
 			log.Println("Error while reading:", err)
 			res.WriteError(tftp.UNKNOWN_ERROR, "Unknown Error")
-			return
+			break
 		}
 
 		_, err = res.Write(b[:bytesRead])
 		if err != nil {
 			log.Println("Failed to write bytes:", err)
-			return
+			break
 		}
 	}
+	return
 }
 
 func (flux *FluxServer) ListenAndServe() error {
-	// TODO: eliminate this
-	err := flux.fakeRegister("/home/iniuser/toPrint.ps")
-	if err != nil {
-		panic("that didn't work:" + err.Error())
-	}
-
 	log.Println("Starting server")
 
 	// Check if Address is set, otherwise use default

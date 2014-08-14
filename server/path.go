@@ -12,16 +12,35 @@ var NoFileRegisteredErr = fmt.Errorf("No File Registered")
 var FileNotFound = fmt.Errorf("File not found")
 var FileToLarge = fmt.Errorf("File to large")
 
-func (flux *FluxServer) getInMemReader() (TftpReader, error) {
+// Fake register file
+func (flux *FluxServer) fakeRegister(filename string) error {
+	f, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	buf := &bytes.Buffer{}
+	_, err = buf.ReadFrom(f)
+	if err != nil {
+		return err
+	}
+	flux.Lock()
+	flux.mem = &buf
+	flux.Unlock()
+	return nil
+}
+
+func (flux *FluxServer) getInMemReader() (TftpReader, error)  {
 	flux.RLock()
 	defer flux.RUnlock()
 	if flux.mem == nil {
 		return nil, NoFileRegisteredErr
 	}
-	return bytes.NewBuffer(flux.mem.Bytes()), nil
+	return *flux.mem, nil
 }
 
-const MAX_SIZE int64 = 1000 * 1024 * 1024
+const MAX_SIZE int64 = 100 * 1024 * 1024
 
 func (flux *FluxServer) getFileReader(filename string) (TftpReader, error) {
 	searchPath := flux.Conf.SearchPath
