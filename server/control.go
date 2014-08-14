@@ -29,7 +29,7 @@ func (c *controlServer) sendResponse(conn net.Conn, errCode int64, message strin
 	resp := &fluxtftp.ControlResponse{Error: errCode, Message: message}
 	wireResp, err := json.Marshal(resp)
 	if err != nil {
-		panic("Could nor marshal response")
+		log.Printf("Error: Could nor marshal response")
 	}
 	_, err = conn.Write(wireResp)
 	if err != nil {
@@ -47,6 +47,9 @@ func (c *controlServer) handleControl(conn net.Conn) {
 	if err != nil || req.Verb == "" || len(req.Data) == 0 {
 		if err != nil {
 			log.Println("Control: Received:", req)
+		} else {
+			log.Printf("Error: handling Request failed: Verb=%s len=%d",
+					req.Verb, len(req.Data))
 		}
 		c.sendResponse(conn, fluxtftp.ControlErrMalformed, "Something went wrong")
 		return
