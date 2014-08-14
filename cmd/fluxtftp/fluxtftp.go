@@ -12,12 +12,16 @@ import (
 var daemon bool
 
 const (
-	SEARCHPATH  string = "/home/iniuser/.fluxftpd"
-	TFTPDADDR   string = ":6969"
-	CONTROLSOCK string = "/run/user/%d/fluxtftp/control"
+	SEARCHPATH      string = "/var/lib/tftpd/"
+	TFTPDADDR       string = ":69"
+	USERCONTROLSOCK string = "/var/run/user/%d/fluxtftp/control"
+	CONTROLSOCK     string = "/var/run/fluxtftp/control"
 )
 
-var ControlAddr string
+var controlAddr string
+var daemon bool = false
+var tftpListen string = TFTPDADDR
+var searchPath string = SEARCHPATH
 
 func init() {
 	flag.Usage = usage
@@ -38,9 +42,8 @@ func serverInit() {
 			panic("Could not create control sock " + filepath.Dir(ControlAddr))
 		}
 	} else {
-		ControlAddr = fmt.Sprintf(CONTROLSOCK, uid)
-		err := os.MkdirAll(filepath.Dir(ControlAddr), 0700)
-		fmt.Println("Created control dir:", filepath.Dir(ControlAddr))
+		control = fmt.Sprintf(USERCONTROLSOCK, uid)
+		_, err := os.Stat(filepath.Dir(control))
 		if err != nil {
 			panic("Could not create control sock " + filepath.Dir(ControlAddr))
 		}
@@ -88,7 +91,15 @@ func main() {
 		os.Exit(1)
 	}
 	defer file.Close()
-	err = client.Add(file)
+
+	// create client
+	c, err := client.NewFluxClient(controlAddr)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	defer c.Close()
+	err = c.Add(file)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

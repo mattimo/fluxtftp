@@ -1,24 +1,36 @@
 package client
 
 import (
-	"github.com/mattimo/fluxtftp"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/mattimo/fluxtftp"
 	"io"
 	"net"
 )
 
-func Add(reader io.Reader) error {
-	addr, err := net.ResolveUnixAddr("unix", "/run/user/1000/fluxtftp/control")
+type FluxClient struct {
+	Conn net.Conn
+}
+
+func NewFluxClient(dial string) (*FluxClient, error) {
+	f := &FluxClient{}
+
+	addr, err := net.ResolveUnixAddr("unix", dial)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	conn, err := net.DialUnix("unix", nil, addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	f.Conn = conn
+
+	return f, nil
+}
+
+func (f *FluxClient) Add(reader io.Reader) error {
 
 	buf := &bytes.Buffer{}
 	buf.ReadFrom(reader)
@@ -31,13 +43,13 @@ func Add(reader io.Reader) error {
 		return err
 	}
 
-	_, err = conn.Write(message)
+	_, err = f.Conn.Write(message)
 	if err != nil {
 		return err
 	}
 
 	answer := &fluxtftp.ControlResponse{}
-	dec := json.NewDecoder(conn)
+	dec := json.NewDecoder(f.Conn)
 	err = dec.Decode(answer)
 	if err != nil {
 		return err
@@ -48,4 +60,8 @@ func Add(reader io.Reader) error {
 	}
 
 	return nil
+}
+
+func (f *FluxClient) Close() error {
+	return f.Conn.Close()
 }
