@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,37 +12,18 @@ var NoFileRegisteredErr = fmt.Errorf("No File Registered")
 var FileNotFound = fmt.Errorf("File not found")
 var FileToLarge = fmt.Errorf("File to large")
 
-// Fake register file
-func (flux *FluxServer) fakeRegister(filename string) error {
-	f, err := os.Open(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	buf := &bytes.Buffer{}
-	_, err = buf.ReadFrom(f)
-	if err != nil {
-		return err
-	}
-	flux.Lock()
-	flux.mem = &buf
-	flux.Unlock()
-	return nil
-}
-
-func (flux *FluxServer) getInMemReader() (io.Reader, error) {
+func (flux *FluxServer) getInMemReader() (TftpReader, error) {
 	flux.RLock()
 	defer flux.RUnlock()
 	if flux.mem == nil {
 		return nil, NoFileRegisteredErr
 	}
-	return *flux.mem, nil
+	return bytes.NewBuffer(flux.mem.Bytes()), nil
 }
 
-const MAX_SIZE int64 = 100 * 1024 * 1024
+const MAX_SIZE int64 = 1000 * 1024 * 1024
 
-func (flux *FluxServer) getFileReader(filename string) (io.Reader, error) {
+func (flux *FluxServer) getFileReader(filename string) (TftpReader, error) {
 	searchPath := flux.Conf.SearchPath
 	info, err := os.Stat(searchPath)
 	if err != nil {
@@ -82,7 +62,7 @@ func (flux *FluxServer) getFileReader(filename string) (io.Reader, error) {
 // This function does the actual magic. We look for the asked file in the
 // search path and if it doesn't exist we just return a reader to the most
 // recent file added
-func (flux *FluxServer) GetFile(path string) (io.Reader, error) {
+func (flux *FluxServer) GetFile(path string) (TftpReader, error) {
 	if flux.Conf.SearchPath == "" {
 		return flux.getInMemReader()
 	}

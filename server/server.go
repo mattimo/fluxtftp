@@ -1,13 +1,18 @@
 package server
 
 import (
-	"github.com/mattimo/fluxtftp/tftp"
 	"bytes"
+	"github.com/mattimo/fluxtftp/tftp"
 	"io"
 	"log"
 	"net"
 	"sync"
 )
+
+type TftpReader interface {
+	io.Reader
+	io.ByteReader
+}
 
 type FluxServer struct {
 	sync.RWMutex
@@ -33,6 +38,59 @@ func (flux *FluxServer) PutDefault(data []byte) error {
 	return nil
 }
 
+type asciiReader struct {
+	from TftpReader
+	cr   bool
+	null bool
+}
+
+func newAsciiReader(from TftpReader) *asciiReader {
+	r := &asciiReader{
+		from: from,
+		cr:   false,
+		null: false,
+	}
+	return r
+}
+
+func (r *asciiReader) ReadByte() (byte, error) {
+	if r.cr {
+		r.cr = false
+		return 0x0a, nil
+	}
+	if r.null {
+		r.null = false
+		return 0x00, nil
+	}
+	b, err := r.from.ReadByte()
+	if err != nil {
+		return b, err
+	}
+	if b == 0x0d {
+		r.null = true
+		return b, nil
+	}
+	if b == 0x0a {
+		r.cr = true
+		b = 0x0d
+	}
+	return b, nil
+}
+
+func (r *asciiReader) Read(b []byte) (int, error) {
+	inlen := cap(b)
+	n := 0
+	for n < inlen {
+		cb, err := r.ReadByte()
+		if err != nil {
+			return n, err
+		}
+		b[n] = cb
+		n++
+	}
+	return n, nil
+}
+
 func (flux *FluxServer) handleRequest(res *tftp.RRQresponse) {
 	log.Println("Got request for", res.Request.Path)
 
@@ -41,8 +99,8 @@ func (flux *FluxServer) handleRequest(res *tftp.RRQresponse) {
 		log.Println("Failed to Write OACK:", err)
 		return
 	}
-
-	reader, err := flux.GetFile(res.Request.Path)
+	var reader TftpReader
+	reader, err = flux.GetFile(res.Request.Path)
 	if err != nil {
 		log.Println("Failed to open file:", err)
 		if err == NoFileRegisteredErr {
@@ -51,6 +109,9 @@ func (flux *FluxServer) handleRequest(res *tftp.RRQresponse) {
 			res.WriteError(tftp.UNKNOWN_ERROR, "Server Error")
 		}
 		return
+	}
+	if res.Request.Mode == tftp.NETASCII {
+		reader = newAsciiReader(reader)
 	}
 
 	b := make([]byte, res.Request.Blocksize)
