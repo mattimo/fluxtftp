@@ -92,7 +92,10 @@ func (r *asciiReader) Read(b []byte) (int, error) {
 }
 
 func (flux *FluxServer) handleRequest(res *tftp.RRQresponse) {
-	log.Println("Got request for", res.Request.Path)
+	addr := *res.Request.Addr
+	log.Printf("Got request for %s from %s/%s", res.Request.Path,
+			addr.Network(),
+			addr.String())
 
 	err := res.WriteOACK()
 	if err != nil {
